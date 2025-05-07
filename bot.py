@@ -8,31 +8,37 @@ bot = telebot.TeleBot(TOKEN)
 ARQUIVO_GASTOS = "gastos.txt"
 ARQUIVO_SALDO = "saldo.txt"
 
+# Função para ler o conteúdo de arquivos
 def ler_arquivo(nome_arquivo):
     if not os.path.exists(nome_arquivo):
         return ""
     with open(nome_arquivo, "r", encoding="utf-8") as f:
         return f.read()
 
+# Função para escrever conteúdo no arquivo
 def escrever_arquivo(nome_arquivo, conteudo):
     with open(nome_arquivo, "w", encoding="utf-8") as f:
         f.write(conteudo)
 
+# Função para adicionar gasto
 def adicionar_gasto(valor, descricao, usuario):
     dados = ler_arquivo(ARQUIVO_GASTOS)
     data = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     novo_gasto = f"{valor} - {descricao} - {usuario} - {data}\n"
     escrever_arquivo(ARQUIVO_GASTOS, dados + novo_gasto)
 
+# Função para calcular o saldo atual
 def calcular_saldo():
     saldo = ler_arquivo(ARQUIVO_SALDO)
     if not saldo:
         return 0.0
     return float(saldo)
 
+# Função para atualizar o saldo
 def atualizar_saldo(novo_saldo):
     escrever_arquivo(ARQUIVO_SALDO, str(novo_saldo))
 
+# Comando /menu
 @bot.message_handler(commands=["menu"])
 def menu(message):
     bot.reply_to(message,
@@ -47,25 +53,27 @@ def menu(message):
         "8️⃣ /ajuda - Ajuda com comandos",
         parse_mode="Markdown")
 
+# Comando para adicionar gasto diretamente
 @bot.message_handler(func=lambda message: True)
 def processar_gasto(message):
     try:
         partes = message.text.split()
         if len(partes) < 2:
-            return
+            return  # Ignora mensagens que não tem valor + descrição
         valor = float(partes[0])
         descricao = " ".join(partes[1:])
         saldo_atual = calcular_saldo()
-        if valor > saldo_atual:
+        if saldo_atual < valor:
             bot.reply_to(message, "❌ Saldo insuficiente.")
             return
         novo_saldo = saldo_atual - valor
-        atualizar_saldo(novo_saldo)
         adicionar_gasto(valor, descricao, message.from_user.first_name)
+        atualizar_saldo(novo_saldo)
         bot.reply_to(message, f"Gasto de R$ {valor:.2f} registrado: {descricao}")
     except ValueError:
-        pass  # Ignora qualquer mensagem que não tenha o formato correto de valor + descrição
+        pass  # Ignora mensagens mal formatadas
 
+# Comando /relatorio_semanal
 @bot.message_handler(commands=["relatorio_semanal"])
 def relatorio_semanal(message):
     dados = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
@@ -84,6 +92,7 @@ def relatorio_semanal(message):
         resposta += f"{i}. {gasto}\n"
     bot.reply_to(message, resposta, parse_mode="Markdown")
 
+# Comando /relatorio_mensal
 @bot.message_handler(commands=["relatorio_mensal"])
 def relatorio_mensal(message):
     dados = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
@@ -102,6 +111,7 @@ def relatorio_mensal(message):
         resposta += f"{i}. {gasto}\n"
     bot.reply_to(message, resposta, parse_mode="Markdown")
 
+# Comando /excluir
 @bot.message_handler(commands=["excluir"])
 def excluir_gasto(message):
     try:
@@ -120,16 +130,19 @@ def excluir_gasto(message):
     except (ValueError, IndexError):
         bot.reply_to(message, "Use: /excluir <número válido>")
 
+# Comando /zerar
 @bot.message_handler(commands=["zerar"])
 def zerar_gastos(message):
     escrever_arquivo(ARQUIVO_GASTOS, "")
     bot.reply_to(message, "✅ Todos os gastos foram zerados.")
 
+# Comando /saldo
 @bot.message_handler(commands=["saldo"])
 def saldo(message):
     saldo_atual = calcular_saldo()
     bot.reply_to(message, f"💰 Saldo atual: R$ {saldo_atual:.2f}")
 
+# Comando /carteira
 @bot.message_handler(commands=["carteira"])
 def carteira(message):
     try:
@@ -138,11 +151,14 @@ def carteira(message):
             bot.reply_to(message, "Use: /carteira <valor>")
             return
         valor = float(partes[1])
-        atualizar_saldo(valor)
-        bot.reply_to(message, f"💰 Saldo da carteira definido como: R$ {valor:.2f}")
+        saldo_atual = calcular_saldo()
+        novo_saldo = saldo_atual + valor
+        atualizar_saldo(novo_saldo)
+        bot.reply_to(message, f"💰 Saldo da carteira atualizado para: R$ {novo_saldo:.2f}")
     except ValueError:
         bot.reply_to(message, "Use: /carteira <valor>")
 
+# Comando /ajuda
 @bot.message_handler(commands=["ajuda"])
 def ajuda(message):
     bot.reply_to(message,
