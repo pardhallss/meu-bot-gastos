@@ -87,9 +87,8 @@ def listar_gastos(message):
     if not dados.strip():
         bot.reply_to(message, "Nenhum gasto registrado.")
         return
-    resposta = "*🧾 Lista de Gastos:*
+    resposta = """*🧾 Lista de Gastos:*"""
 
-"
     linhas = dados.strip().split("\n")
     for i, linha in enumerate(linhas, 1):
         resposta += f"{i}. {linha}\n"
@@ -125,9 +124,7 @@ def relatorio(message):
     if not linhas or not linhas[0]:
         bot.reply_to(message, f"Nenhum gasto para o relatório {tipo}.")
         return
-    resposta = f"*📋 Relatório {tipo.capitalize()}:*
-
-"
+    resposta = f"*📋 Relatório {tipo.capitalize()}:*"
     for i, linha in enumerate(linhas, 1):
         resposta += f"{i}. {linha}\n"
     bot.reply_to(message, resposta, parse_mode="Markdown")
