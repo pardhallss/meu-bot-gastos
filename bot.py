@@ -32,23 +32,21 @@ def calcular_saldo():
 def atualizar_saldo(novo_saldo):
     escrever_arquivo(ARQUIVO_SALDO, str(novo_saldo))
 
-@bot.message_handler(commands=['menu'])
+@bot.message_handler(commands=["menu"])
 def menu(message):
-    bot.reply_to(message, """📊 *Menu de Controle de Gastos:*
-
-Comandos disponíveis:
-/gastar valor descrição — Registrar um gasto  
-/saldo — Ver saldo atual da carteira  
-/definir_saldo valor — Definir o saldo manualmente  
-/gastos — Ver todos os gastos  
-/excluir número — Excluir um gasto específico  
-/estatisticas — Ver estatísticas dos gastos  
-/relatorio_semanal — Ver relatório da semana  
-/relatorio_mensal — Ver relatório do mês  
-/zerar_semanal — Zerar gastos da semana  
-/zerar_mensal — Zerar gastos do mês
-""", parse_mode="Markdown")
-
+    bot.reply_to(message,
+        "📊 *Menu de Controle de Gastos:*\n\n"
+        "1️⃣ /adicionar - Adicionar novo gasto\n"
+        "2️⃣ /listar - Ver todos os gastos\n"
+        "3️⃣ /total - Ver total de gastos\n"
+        "4️⃣ /estatisticas - Estatísticas gerais\n"
+        "5️⃣ /relatorio - Relatório semanal/mensal\n"
+        "6️⃣ /excluir - Excluir um gasto\n"
+        "7️⃣ /zerar - Zerar os gastos\n"
+        "8️⃣ /saldo - Ver saldo da carteira\n"
+        "9️⃣ /carteira - Definir novo saldo\n"
+        "🔟 /ajuda - Ajuda com comandos",
+        parse_mode="Markdown"  )
 
 @bot.message_handler(commands=["definir_saldo"])
 def definir_saldo(message):
