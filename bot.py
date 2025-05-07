@@ -64,7 +64,7 @@ def processar_gasto(message):
         adicionar_gasto(valor, descricao, message.from_user.first_name)
         bot.reply_to(message, f"Gasto de R$ {valor:.2f} registrado: {descricao}")
     except ValueError:
-        pass
+        pass  # Ignora qualquer mensagem que não tenha o formato correto de valor + descrição
 
 @bot.message_handler(commands=["relatorio_semanal"])
 def relatorio_semanal(message):
