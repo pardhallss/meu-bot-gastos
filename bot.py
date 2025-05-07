@@ -1,4 +1,3 @@
-
 import telebot
 import os
 
@@ -46,16 +45,20 @@ def menu(message):
         "8️⃣ /saldo - Ver saldo da carteira\n"
         "9️⃣ /carteira - Definir novo saldo\n"
         "🔟 /ajuda - Ajuda com comandos",
-        parse_mode="Markdown"  )
+        parse_mode="Markdown")
 
 @bot.message_handler(commands=["definir_saldo"])
 def definir_saldo(message):
     try:
-        valor = float(message.text.split()[1])
+        partes = message.text.split()
+        if len(partes) < 2:
+            bot.reply_to(message, "Use: /definir_saldo <valor>")
+            return
+        valor = float(partes[1])
         atualizar_saldo(valor)
         bot.reply_to(message, f"💰 Saldo definido como R$ {valor:.2f}")
-    except:
-        bot.reply_to(message, "Use: /definir_saldo <valor>")
+    except ValueError:
+        bot.reply_to(message, "Por favor, insira um valor numérico válido. Exemplo: /definir_saldo 100.00")
 
 @bot.message_handler(commands=["saldo"])
 def saldo(message):
@@ -66,6 +69,9 @@ def saldo(message):
 def gastar(message):
     try:
         partes = message.text.split()
+        if len(partes) < 3:
+            bot.reply_to(message, "Use: /gastar <valor> <descrição>")
+            return
         valor = float(partes[1])
         descricao = " ".join(partes[2:])
         saldo_atual = calcular_saldo()
@@ -76,7 +82,7 @@ def gastar(message):
         atualizar_saldo(novo_saldo)
         adicionar_gasto(valor, descricao, message.from_user.first_name)
         bot.reply_to(message, f"Gasto de R$ {valor:.2f} registrado: {descricao}")
-    except:
+    except ValueError:
         bot.reply_to(message, "Use: /gastar <valor> <descrição>")
 
 @bot.message_handler(commands=["gastos"])
@@ -85,8 +91,7 @@ def listar_gastos(message):
     if not dados.strip():
         bot.reply_to(message, "Nenhum gasto registrado.")
         return
-    resposta = """*🧾 Lista de Gastos:*"""
-
+    resposta = "*🧾 Lista de Gastos:*"
     linhas = dados.strip().split("\n")
     for i, linha in enumerate(linhas, 1):
         resposta += f"{i}. {linha}\n"
@@ -95,7 +100,11 @@ def listar_gastos(message):
 @bot.message_handler(commands=["excluir"])
 def excluir_gasto(message):
     try:
-        numero = int(message.text.split()[1]) - 1
+        partes = message.text.split()
+        if len(partes) < 2:
+            bot.reply_to(message, "Use: /excluir <número>")
+            return
+        numero = int(partes[1]) - 1
         linhas = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
         if 0 <= numero < len(linhas):
             gasto = linhas.pop(numero)
@@ -103,8 +112,8 @@ def excluir_gasto(message):
             bot.reply_to(message, f"Gasto excluído: {gasto}")
         else:
             bot.reply_to(message, "Número inválido.")
-    except:
-        bot.reply_to(message, "Use: /excluir <número>")
+    except (ValueError, IndexError):
+        bot.reply_to(message, "Use: /excluir <número válido>")
 
 @bot.message_handler(commands=["estatisticas"])
 def estatisticas(message):
@@ -112,7 +121,11 @@ def estatisticas(message):
     total = 0
     for linha in linhas:
         if linha:
-            total += float(linha.split(" - ")[0])
+            try:
+                valor = float(linha.split(" - ")[0])
+                total += valor
+            except ValueError:
+                continue  # Ignorar linha mal formatada
     bot.reply_to(message, f"📈 Total gasto: R$ {total:.2f}")
 
 @bot.message_handler(commands=["relatorio_semanal", "relatorio_mensal"])
@@ -133,4 +146,3 @@ def zerar_gastos(message):
     bot.reply_to(message, "✅ Gastos zerados.")
 
 bot.infinity_polling()
-
