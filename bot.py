@@ -132,4 +132,5 @@ def zerar_gastos(message):
     escrever_arquivo(ARQUIVO_GASTOS, "")
     bot.reply_to(message, "✅ Gastos zerados.")
 
-bot.polling()
+bot.infinity_polling()
+
