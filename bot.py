@@ -1,5 +1,6 @@
 import telebot
 import os
+import datetime
 
 TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
@@ -19,7 +20,8 @@ def escrever_arquivo(nome_arquivo, conteudo):
 
 def adicionar_gasto(valor, descricao, usuario):
     dados = ler_arquivo(ARQUIVO_GASTOS)
-    novo_gasto = f"{valor} - {descricao} - {usuario}\n"
+    data = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    novo_gasto = f"{valor} - {descricao} - {usuario} - {data}\n"
     escrever_arquivo(ARQUIVO_GASTOS, dados + novo_gasto)
 
 def calcular_saldo():
@@ -35,27 +37,24 @@ def atualizar_saldo(novo_saldo):
 def menu(message):
     bot.reply_to(message,
         "📊 *Menu de Controle de Gastos:*\n\n"
-        "1️⃣ /adicionar - Adicionar novo gasto\n"
-        "2️⃣ /listar - Ver todos os gastos\n"
-        "3️⃣ /total - Ver total de gastos\n"
-        "4️⃣ /estatisticas - Estatísticas gerais\n"
-        "5️⃣ /relatorio - Relatório semanal/mensal\n"
-        "6️⃣ /excluir - Excluir um gasto\n"
-        "7️⃣ /zerar - Zerar os gastos\n"
-        "8️⃣ /saldo - Ver saldo da carteira\n"
-        "9️⃣ /carteira - Definir novo saldo\n"
-        "🔟 /ajuda - Ajuda com comandos",
+        "1️⃣ Enviar gasto (Exemplo: 50 cinema)\n"
+        "2️⃣ /relatorio_semanal - Relatório de gastos semanal\n"
+        "3️⃣ /relatorio_mensal - Relatório de gastos mensal\n"
+        "4️⃣ /excluir - Excluir um gasto específico\n"
+        "5️⃣ /zerar - Zerar os gastos\n"
+        "6️⃣ /saldo - Ver saldo da carteira\n"
+        "7️⃣ /carteira - Definir novo saldo\n"
+        "8️⃣ /ajuda - Ajuda com comandos",
         parse_mode="Markdown")
 
-@bot.message_handler(commands=["adicionar"])
-def adicionar(message):
+@bot.message_handler(func=lambda message: True)
+def processar_gasto(message):
     try:
         partes = message.text.split()
-        if len(partes) < 3:
-            bot.reply_to(message, "Use: /adicionar <valor> <descrição>")
+        if len(partes) < 2:
             return
-        valor = float(partes[1])
-        descricao = " ".join(partes[2:])
+        valor = float(partes[0])
+        descricao = " ".join(partes[1:])
         saldo_atual = calcular_saldo()
         if valor > saldo_atual:
             bot.reply_to(message, "❌ Saldo insuficiente.")
@@ -65,47 +64,42 @@ def adicionar(message):
         adicionar_gasto(valor, descricao, message.from_user.first_name)
         bot.reply_to(message, f"Gasto de R$ {valor:.2f} registrado: {descricao}")
     except ValueError:
-        bot.reply_to(message, "Use: /adicionar <valor> <descrição>")
+        pass
 
-@bot.message_handler(commands=["listar"])
-def listar_gastos(message):
-    dados = ler_arquivo(ARQUIVO_GASTOS)
-    if not dados.strip():
-        bot.reply_to(message, "Nenhum gasto registrado.")
+@bot.message_handler(commands=["relatorio_semanal"])
+def relatorio_semanal(message):
+    dados = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
+    semana_atual = datetime.datetime.now().isocalendar()[1]
+    gastos_semanal = []
+    for linha in dados:
+        data_gasto = linha.split(" - ")[3]
+        data_gasto = datetime.datetime.strptime(data_gasto, "%Y-%m-%d %H:%M:%S")
+        if data_gasto.isocalendar()[1] == semana_atual:
+            gastos_semanal.append(linha)
+    if not gastos_semanal:
+        bot.reply_to(message, "Nenhum gasto registrado nesta semana.")
         return
-    resposta = "*🧾 Lista de Gastos:*"
-    linhas = dados.strip().split("\n")
-    for i, linha in enumerate(linhas, 1):
-        resposta += f"{i}. {linha}\n"
+    resposta = "*📊 Relatório de Gastos Semanal:*"
+    for i, gasto in enumerate(gastos_semanal, 1):
+        resposta += f"{i}. {gasto}\n"
     bot.reply_to(message, resposta, parse_mode="Markdown")
 
-@bot.message_handler(commands=["total"])
-def total(message):
-    dados = ler_arquivo(ARQUIVO_GASTOS)
-    total = 0.0
-    if dados.strip():
-        for linha in dados.strip().split("\n"):
-            total += float(linha.split(" - ")[0])
-    bot.reply_to(message, f"📈 Total gasto: R$ {total:.2f}")
-
-@bot.message_handler(commands=["estatisticas"])
-def estatisticas(message):
-    dados = ler_arquivo(ARQUIVO_GASTOS)
-    total = 0
-    if dados.strip():
-        for linha in dados.strip().split("\n"):
-            total += float(linha.split(" - ")[0])
-    bot.reply_to(message, f"📈 Total gasto: R$ {total:.2f}")
-
-@bot.message_handler(commands=["relatorio"])
-def relatorio(message):
-    linhas = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
-    if not linhas or not linhas[0]:
-        bot.reply_to(message, "Nenhum gasto registrado para o relatório.")
+@bot.message_handler(commands=["relatorio_mensal"])
+def relatorio_mensal(message):
+    dados = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
+    mes_atual = datetime.datetime.now().month
+    gastos_mensal = []
+    for linha in dados:
+        data_gasto = linha.split(" - ")[3]
+        data_gasto = datetime.datetime.strptime(data_gasto, "%Y-%m-%d %H:%M:%S")
+        if data_gasto.month == mes_atual:
+            gastos_mensal.append(linha)
+    if not gastos_mensal:
+        bot.reply_to(message, "Nenhum gasto registrado neste mês.")
         return
-    resposta = "*📋 Relatório de Gastos:*"
-    for i, linha in enumerate(linhas, 1):
-        resposta += f"{i}. {linha}\n"
+    resposta = "*📊 Relatório de Gastos Mensal:*"
+    for i, gasto in enumerate(gastos_mensal, 1):
+        resposta += f"{i}. {gasto}\n"
     bot.reply_to(message, resposta, parse_mode="Markdown")
 
 @bot.message_handler(commands=["excluir"])
@@ -154,15 +148,12 @@ def ajuda(message):
     bot.reply_to(message,
         "Comandos disponíveis:\n"
         "/menu - Exibir menu de comandos\n"
-        "/adicionar - Adicionar um novo gasto\n"
-        "/listar - Listar todos os gastos\n"
-        "/total - Ver total de gastos\n"
-        "/estatisticas - Ver estatísticas gerais\n"
-        "/relatorio - Ver relatório de gastos\n"
-        "/excluir - Excluir um gasto\n"
+        "Enviar gasto - Exemplo: 50 cinema\n"
+        "/relatorio_semanal - Relatório de gastos semanal\n"
+        "/relatorio_mensal - Relatório de gastos mensal\n"
+        "/excluir - Excluir um gasto específico\n"
         "/zerar - Zerar todos os gastos\n"
         "/saldo - Ver saldo da carteira\n"
         "/carteira - Definir saldo da carteira")
 
 bot.infinity_polling()
-
