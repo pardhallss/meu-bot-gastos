@@ -47,30 +47,12 @@ def menu(message):
         "🔟 /ajuda - Ajuda com comandos",
         parse_mode="Markdown")
 
-@bot.message_handler(commands=["definir_saldo"])
-def definir_saldo(message):
-    try:
-        partes = message.text.split()
-        if len(partes) < 2:
-            bot.reply_to(message, "Use: /definir_saldo <valor>")
-            return
-        valor = float(partes[1])
-        atualizar_saldo(valor)
-        bot.reply_to(message, f"💰 Saldo definido como R$ {valor:.2f}")
-    except ValueError:
-        bot.reply_to(message, "Por favor, insira um valor numérico válido. Exemplo: /definir_saldo 100.00")
-
-@bot.message_handler(commands=["saldo"])
-def saldo(message):
-    saldo_atual = calcular_saldo()
-    bot.reply_to(message, f"💰 Saldo atual: R$ {saldo_atual:.2f}")
-
-@bot.message_handler(commands=["gastar"])
-def gastar(message):
+@bot.message_handler(commands=["adicionar"])
+def adicionar(message):
     try:
         partes = message.text.split()
         if len(partes) < 3:
-            bot.reply_to(message, "Use: /gastar <valor> <descrição>")
+            bot.reply_to(message, "Use: /adicionar <valor> <descrição>")
             return
         valor = float(partes[1])
         descricao = " ".join(partes[2:])
@@ -83,9 +65,9 @@ def gastar(message):
         adicionar_gasto(valor, descricao, message.from_user.first_name)
         bot.reply_to(message, f"Gasto de R$ {valor:.2f} registrado: {descricao}")
     except ValueError:
-        bot.reply_to(message, "Use: /gastar <valor> <descrição>")
+        bot.reply_to(message, "Use: /adicionar <valor> <descrição>")
 
-@bot.message_handler(commands=["gastos"])
+@bot.message_handler(commands=["listar"])
 def listar_gastos(message):
     dados = ler_arquivo(ARQUIVO_GASTOS)
     if not dados.strip():
@@ -93,6 +75,35 @@ def listar_gastos(message):
         return
     resposta = "*🧾 Lista de Gastos:*"
     linhas = dados.strip().split("\n")
+    for i, linha in enumerate(linhas, 1):
+        resposta += f"{i}. {linha}\n"
+    bot.reply_to(message, resposta, parse_mode="Markdown")
+
+@bot.message_handler(commands=["total"])
+def total(message):
+    dados = ler_arquivo(ARQUIVO_GASTOS)
+    total = 0.0
+    if dados.strip():
+        for linha in dados.strip().split("\n"):
+            total += float(linha.split(" - ")[0])
+    bot.reply_to(message, f"📈 Total gasto: R$ {total:.2f}")
+
+@bot.message_handler(commands=["estatisticas"])
+def estatisticas(message):
+    dados = ler_arquivo(ARQUIVO_GASTOS)
+    total = 0
+    if dados.strip():
+        for linha in dados.strip().split("\n"):
+            total += float(linha.split(" - ")[0])
+    bot.reply_to(message, f"📈 Total gasto: R$ {total:.2f}")
+
+@bot.message_handler(commands=["relatorio"])
+def relatorio(message):
+    linhas = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
+    if not linhas or not linhas[0]:
+        bot.reply_to(message, "Nenhum gasto registrado para o relatório.")
+        return
+    resposta = "*📋 Relatório de Gastos:*"
     for i, linha in enumerate(linhas, 1):
         resposta += f"{i}. {linha}\n"
     bot.reply_to(message, resposta, parse_mode="Markdown")
@@ -115,34 +126,43 @@ def excluir_gasto(message):
     except (ValueError, IndexError):
         bot.reply_to(message, "Use: /excluir <número válido>")
 
-@bot.message_handler(commands=["estatisticas"])
-def estatisticas(message):
-    linhas = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
-    total = 0
-    for linha in linhas:
-        if linha:
-            try:
-                valor = float(linha.split(" - ")[0])
-                total += valor
-            except ValueError:
-                continue  # Ignorar linha mal formatada
-    bot.reply_to(message, f"📈 Total gasto: R$ {total:.2f}")
-
-@bot.message_handler(commands=["relatorio_semanal", "relatorio_mensal"])
-def relatorio(message):
-    tipo = "semanal" if "semanal" in message.text else "mensal"
-    linhas = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
-    if not linhas or not linhas[0]:
-        bot.reply_to(message, f"Nenhum gasto para o relatório {tipo}.")
-        return
-    resposta = f"*📋 Relatório {tipo.capitalize()}:*"
-    for i, linha in enumerate(linhas, 1):
-        resposta += f"{i}. {linha}\n"
-    bot.reply_to(message, resposta, parse_mode="Markdown")
-
-@bot.message_handler(commands=["zerar_semanal", "zerar_mensal"])
+@bot.message_handler(commands=["zerar"])
 def zerar_gastos(message):
     escrever_arquivo(ARQUIVO_GASTOS, "")
-    bot.reply_to(message, "✅ Gastos zerados.")
+    bot.reply_to(message, "✅ Todos os gastos foram zerados.")
+
+@bot.message_handler(commands=["saldo"])
+def saldo(message):
+    saldo_atual = calcular_saldo()
+    bot.reply_to(message, f"💰 Saldo atual: R$ {saldo_atual:.2f}")
+
+@bot.message_handler(commands=["carteira"])
+def carteira(message):
+    try:
+        partes = message.text.split()
+        if len(partes) < 2:
+            bot.reply_to(message, "Use: /carteira <valor>")
+            return
+        valor = float(partes[1])
+        atualizar_saldo(valor)
+        bot.reply_to(message, f"💰 Saldo da carteira definido como: R$ {valor:.2f}")
+    except ValueError:
+        bot.reply_to(message, "Use: /carteira <valor>")
+
+@bot.message_handler(commands=["ajuda"])
+def ajuda(message):
+    bot.reply_to(message,
+        "Comandos disponíveis:\n"
+        "/menu - Exibir menu de comandos\n"
+        "/adicionar - Adicionar um novo gasto\n"
+        "/listar - Listar todos os gastos\n"
+        "/total - Ver total de gastos\n"
+        "/estatisticas - Ver estatísticas gerais\n"
+        "/relatorio - Ver relatório de gastos\n"
+        "/excluir - Excluir um gasto\n"
+        "/zerar - Zerar todos os gastos\n"
+        "/saldo - Ver saldo da carteira\n"
+        "/carteira - Definir saldo da carteira")
 
 bot.infinity_polling()
+
