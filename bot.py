@@ -1,9 +1,10 @@
 import telebot
 import os
-from datetime import datetime
+from flask import Flask, request
 
 TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 
 ARQUIVO_GASTOS = "gastos.txt"
 ARQUIVO_SALDO = "saldo.txt"
@@ -19,37 +20,32 @@ def escrever_arquivo(nome_arquivo, conteudo):
         f.write(conteudo)
 
 def adicionar_gasto(valor, descricao, usuario):
-    data = datetime.now().strftime("%Y-%m-%d")
-    novo_gasto = f"{valor:.2f} - {descricao} - {usuario} - {data}\n"
     dados = ler_arquivo(ARQUIVO_GASTOS)
+    novo_gasto = f"{valor} - {descricao} - {usuario}\n"
     escrever_arquivo(ARQUIVO_GASTOS, dados + novo_gasto)
 
 def calcular_saldo():
     saldo = ler_arquivo(ARQUIVO_SALDO)
     if not saldo:
         return 0.0
-    try:
-        return float(saldo)
-    except ValueError:
-        return 0.0
+    return float(saldo)
 
 def atualizar_saldo(novo_saldo):
     escrever_arquivo(ARQUIVO_SALDO, str(novo_saldo))
 
 @bot.message_handler(commands=["menu"])
 def menu(message):
-    texto = (
+    bot.reply_to(message,
         "📊 *Menu de Controle de Gastos:*\n\n"
-        "1️⃣ Enviar gasto (Exemplo: `50 cinema`)\n"
-        "2️⃣ /relatorio_semanal - Relatório semanal\n"
-        "3️⃣ /relatorio_mensal - Relatório mensal\n"
-        "4️⃣ /excluir <número> - Excluir gasto específico\n"
-        "5️⃣ /zerar - Zerar os gastos\n"
-        "6️⃣ /saldo - Ver saldo atual\n"
-        "7️⃣ /carteira <valor> - Definir novo saldo\n"
-        "8️⃣ /ajuda - Ajuda com comandos"
-    )
-    bot.reply_to(message, texto, parse_mode="Markdown")
+        "1️⃣ Enviar gasto (Exemplo: 50 mercado)\n"
+        "2️⃣ /relatoriosemanal - Relatório semanal\n"
+        "3️⃣ /relatoriomensal - Relatório mensal\n"
+        "4️⃣ /excluir - Excluir um gasto\n"
+        "5️⃣ /zerar - Zerar gastos\n"
+        "6️⃣ /saldo - Ver saldo\n"
+        "7️⃣ /carteira - Adicionar saldo\n"
+        "8️⃣ /ajuda - Ajuda com comandos",
+        parse_mode="Markdown")
 
 @bot.message_handler(commands=["carteira"])
 def carteira(message):
@@ -60,25 +56,14 @@ def carteira(message):
             return
         valor = float(partes[1])
         atualizar_saldo(valor)
-        bot.reply_to(message, f"💰 Saldo definido como: R$ {valor:.2f}")
-    except:
-        bot.reply_to(message, "Erro: valor inválido. Exemplo correto: /carteira 100")
+        bot.reply_to(message, f"💰 Saldo da carteira definido como: R$ {valor:.2f}")
+    except ValueError:
+        bot.reply_to(message, "Use: /carteira <valor>")
 
 @bot.message_handler(commands=["saldo"])
 def saldo(message):
-    saldo = calcular_saldo()
-    bot.reply_to(message, f"💰 Saldo atual: R$ {saldo:.2f}")
-
-@bot.message_handler(commands=["relatorio_semanal", "relatorio_mensal"])
-def relatorio(message):
-    linhas = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
-    if not linhas or linhas == ['']:
-        bot.reply_to(message, "Nenhum gasto registrado.")
-        return
-    resposta = "*📋 Relatório de Gastos:*\n"
-    for i, linha in enumerate(linhas, 1):
-        resposta += f"{i}. {linha}\n"
-    bot.reply_to(message, resposta, parse_mode="Markdown")
+    saldo_atual = calcular_saldo()
+    bot.reply_to(message, f"💰 Saldo atual: R$ {saldo_atual:.2f}")
 
 @bot.message_handler(commands=["zerar"])
 def zerar(message):
@@ -95,52 +80,66 @@ def excluir(message):
         numero = int(partes[1]) - 1
         linhas = ler_arquivo(ARQUIVO_GASTOS).strip().split("\n")
         if 0 <= numero < len(linhas):
-            gasto_removido = linhas.pop(numero)
+            gasto = linhas.pop(numero)
             escrever_arquivo(ARQUIVO_GASTOS, "\n".join(linhas) + "\n")
-            bot.reply_to(message, f"Gasto excluído: {gasto_removido}")
+            bot.reply_to(message, f"Gasto excluído: {gasto}")
         else:
             bot.reply_to(message, "Número inválido.")
-    except:
-        bot.reply_to(message, "Erro: Use /excluir <número válido>")
+    except (ValueError, IndexError):
+        bot.reply_to(message, "Use: /excluir <número>")
+
+@bot.message_handler(commands=["relatoriomensal", "relatoriosemanal"])
+def relatorios(message):
+    dados = ler_arquivo(ARQUIVO_GASTOS)
+    if not dados.strip():
+        bot.reply_to(message, "Nenhum gasto registrado.")
+        return
+    resposta = "*📋 Relatório de Gastos:*"
+    for i, linha in enumerate(dados.strip().split("\n"), 1):
+        resposta += f"\n{i}. {linha}"
+    bot.reply_to(message, resposta, parse_mode="Markdown")
 
 @bot.message_handler(commands=["ajuda"])
 def ajuda(message):
-    bot.reply_to(message,
-        "📌 *Ajuda de Comandos:*\n\n"
-        "`50 mercado` — Adiciona gasto\n"
-        "`/carteira 100` — Define saldo\n"
-        "`/saldo` — Mostra saldo\n"
-        "`/zerar` — Limpa todos os gastos\n"
-        "`/excluir 2` — Exclui gasto 2\n"
-        "`/relatorio_mensal` — Relatório mensal\n"
-        "`/menu` — Mostra o menu",
-        parse_mode="Markdown")
+    menu(message)
 
 @bot.message_handler(func=lambda msg: True)
-def registrar_gasto_automatico(message):
-    texto = message.text.strip()
-
-    # Ignorar se começar com "/"
-    if texto.startswith("/"):
-        return
-
-    partes = texto.split()
-    if len(partes) < 2:
-        return
-
+def gastos_rapidos(message):
     try:
+        partes = message.text.split()
+        if len(partes) < 2:
+            return
         valor = float(partes[0])
         descricao = " ".join(partes[1:])
-        saldo_atual = calcular_saldo()
-        if valor > saldo_atual:
+        saldo = calcular_saldo()
+        if valor > saldo:
             bot.reply_to(message, "❌ Saldo insuficiente.")
             return
-        novo_saldo = saldo_atual - valor
-        atualizar_saldo(novo_saldo)
         adicionar_gasto(valor, descricao, message.from_user.first_name)
-        bot.reply_to(message, f"✅ Gasto registrado: R$ {valor:.2f} em '{descricao}'\n💰 Novo saldo: R$ {novo_saldo:.2f}")
-    except:
-        return  # ignora se não for um valor válido
+        atualizar_saldo(saldo - valor)
+        bot.reply_to(message, f"✅ Gasto registrado: R$ {valor:.2f} com {descricao}")
+    except ValueError:
+        pass
 
-bot.infinity_polling()
+# --- Flask + Webhook config para Render gratuito ---
+@app.route(f"/{TOKEN}", methods=["POST"])
+def receber():
+    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+    return "OK", 200
 
+@app.route("/", methods=["GET"])
+def verificar():
+    return "Bot está rodando!", 200
+
+# Start do Webhook
+if __name__ == "__main__":
+    import logging
+    from threading import Thread
+
+    url_base = os.getenv("RENDER_EXTERNAL_URL")  # Render define essa variável automaticamente
+    if url_base:
+        webhook_url = f"{url_base}/{TOKEN}"
+        bot.remove_webhook()
+        bot.set_webhook(url=webhook_url)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
